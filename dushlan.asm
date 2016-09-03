@@ -911,10 +911,22 @@ DoDropAction:
     ; if drop method is 1 (while held), we make the delay very small
     LDA dropmethod
     CMP #1
-    BEQ dda1
+    BEQ dda2
     
+    ; if drop method is 2 (mixture) and the dropbuttonpresscount is >=2 then make the delay very small too
+    LDA dropmethod
+    CMP #2
+    BNE dda1   
+    
+    ; if here then the drop method is mixture
+    
+    LDA dropbuttonpresscount
+    CMP #2
+    BCS dda2
+    
+dda1:    
     JMP SmallDelay
-dda1:
+dda2:
     JMP VerySmallDelay
     
 ; if the button pressed corresponds to anticlockwise
