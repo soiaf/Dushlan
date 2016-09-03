@@ -31,6 +31,11 @@ new_high_score_str:
     .db "NEW HIGH SCORE",0,9,17
 congratulations_str:
     .db "CONGRATULATIONS",0,9,16
+paused_str:
+    .db "PAUSED",0,13,2
+notpaused_str:
+    .db "      ",0,13,2
+	
     
 defuse_info1_str:
     .db "DEFUSE ALL THE BOMBS",0,6,13
@@ -77,10 +82,9 @@ levelnames:
 ; this is the number of complete lines required to win each level
 linesneededperlevel: .db	10,6,6,5,4,#BOMBSONLEVEL6,7,12,4,25
 ;linesneededperlevel: .db	 1,1,1,1,1,#BOMBSONLEVEL6,1,1,1,1
-  
- 
-MyPalettes: 
-    .db $0E,$34,$27,$1C, $0E,$05,$25,$0F, $0E,$05,$25,$0F, $0E,$05,$25,$37    ;background
+
+MainPalette: 
+    .db $0E,$34,$27,$1C, $0E,$05,$25,$0F, $0E,$05,$25,$0F, $0E,$05,$25,$0E    ;background
     .db $0E,$34,$27,$1C, $0E,$05,$25,$0F, $0E,$05,$25,$0F, $0E,$05,$25,$0F    ;sprites
 
 background:

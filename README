@@ -21,13 +21,14 @@ can swap a piece in play for later usage).
 
 There are two possible button controls for the game, the normal controls are
 
-LEFT     -  move left
-RIGHT    -  move right
+LEFT     -  Move left
+RIGHT    -  Move right
 DOWN     -  Drop piece
 UP       -  Swap/Save a piece for later usage
 A        -  Rotate piece clockwise
 B        -  Rotate piece anticlockwise
-START    -  enable/disable ghost mode
+START    -  Pause/Resume game
+SELECT   -  Enable/Disable ghost mode
 
 There is also an alternate control system available on the main menu, these
 are the button definitions for it:
@@ -38,7 +39,8 @@ DOWN     -  Rotate piece clockwise
 UP       -  Rotate piece anticlockwise
 A        -  Drop piece
 B        -  Swap/Save a piece for later usage
-START    -  enable/disable ghost mode
+START    -  Pause/Resume game
+SELECT   -  Enable/Disable ghost mode
 
 You are able to modify the behaviour of the 'Drop piece' key in the settings 
 on the main menu. The three possible options are

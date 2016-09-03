@@ -318,3 +318,7 @@
     ;used to determine what actions the buttons do, if 0 then down is drop, up is save
     ;if 1 then down is clockwise spin, up is anticlockwise spin
     controlleroption    .dsb 1
+	
+	; the following is used when we are loading a colour palette
+    paletteaddr  .dsb 2
+ 

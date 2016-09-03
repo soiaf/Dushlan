@@ -115,39 +115,15 @@ vBlankWait2:
     BPL vBlankWait2
     
     JSR HideAllSprites
-
-    
   
-    ;; if the comparison between 32 and x is not
-    ;; zero (if 32-x does not = 0), that means there
-    ;; are still more colours to load, so jump up
-    ;; to the loop again with the now higher x value 
-
+    ;; load the main palette
     
-    ;; load the palettes
+    LDA #<MainPalette
+    STA paletteaddr
+    LDA #>MainPalette
+    STA paletteaddr + 1
 
-    LDA $2002
-    LDA #$3F
-    STA $2006
-    LDA #$00
-    STA $2006
-    LDX #$00
-    
-;;; ready to start loop
-
-LoadPaletteLoop:
-
-    LDA MyPalettes,x  ;; load whatever value from the 
-                      ;; table that x is equal to.
-    STA $2007         ;; store it to the address that handles 
-                      ;; palettes.
-    INX               ;; increase x
-    CPX #$20          ;; compare it to 32 There are 8 banks of 4 colours
-                      ;; we are loading.  8x4 = 32.
-                      ;; so we need to loop through 32 times
-
-    BNE LoadPaletteLoop  
-
+    JSR LoadPalette
    
 ; initialise variables  
 
@@ -215,7 +191,7 @@ LoadPaletteLoop:
     JSR GetTVSystem
     STA tvsystem
     
-    ; initalise music
+    ; initialise music
     
     ;0: NTSC, 1: PAL, 2: Dendy; 3: unknown
     
@@ -255,9 +231,11 @@ setsound2:
     JSR LoadTeuthidaScreen
     
 
-    lda #song_index_Teuthida
-    sta sound_param_byte_0
-    jsr play_song  
+    LDA #song_index_Teuthida
+    STA sound_param_byte_0
+    JSR play_song  
+    
+    JSR FadeInTeuthidaScreen
     
     LDX #0
 teuthidaloop1:
@@ -314,6 +292,21 @@ NMI:
                  ; high+low, or 02+00 or $0200.
                  ; Later, we'll be using the address $0200
                  ; for our sprite data.  This is why.
+                 
+    ; load the palette
+    ; The palette for the background runs from VRAM $3F00 to $3F0F
+    ; the palette for the sprites runs from $3F10 to $3F1F
+    
+    LDA #$3f
+    STA $2006
+    LDX #$00
+    STX $2006
+nmipal: 
+    LDA palette,x
+    STA $2007
+    INX
+    CPX #$20
+    BNE nmipal
     
     LDA bgupdaterequired
     CMP #$01
@@ -367,7 +360,48 @@ ExitNMI:
            ;; The RTI will put us back into the code 
            ;; in whatever place we were when the frame ended
 
+; this fades in the Teuthida screen by cycling through the palettes
+FadeInTeuthidaScreen:
+
+    JSR VerySmallDelay
+    JSR WaitFrame   ; wait for the NMI VBlank
+
+    LDA #$0C  ; cyan colour 
+    STA palette+15
+
+    JSR VerySmallDelay
+    JSR WaitFrame   ; wait for the NMI VBlank
+
+    LDA #$00  ; gray colour 
+    STA palette+15
     
+    JSR VerySmallDelay
+    JSR WaitFrame   ; wait for the NMI VBlank
+  
+    LDA #$10  ; light gray colour 
+    STA palette+15
+    
+    JSR VerySmallDelay
+    JSR WaitFrame   ; wait for the NMI VBlank
+    
+    LDA #$20  ; white colour 
+    STA palette+15
+   
+    RTS
+   
+; this loads the palette into RAM, ready to be processed by the NMI   
+LoadPalette:
+    LDY #$00
+iploop: 
+    LDA (paletteaddr),y
+    STA palette,Y   ; store in the palette in RAM
+    INY
+    CPY #$20
+    BNE iploop
+    
+    RTS
+   
+  
 ;; Start game
 StartGame:
 
@@ -384,26 +418,26 @@ sgloop:
     CPX randomtemp
     BNE sgloop
     
-	; lets draw the screen
-	JMP NewLevel
+    ; lets draw the screen
+    JMP NewLevel
     
     
 ; this setups the variables for a new level and draws the screen
 NewLevel:
-	
-	JSR SetUpLevel
+    
+    JSR SetUpLevel
     JSR InitPlayArea
-	JSR DrawScreen
+    JSR DrawScreen
 
     ;reset frameTimer and pretim
     LDA frameTimer
     STA pretim
 
-	JMP MainGameLoop
+    JMP MainGameLoop
 
 ; this sets up the variables for a new level
 SetUpLevel:
-	LDA #0
+    LDA #0
     STA upsidedown
     LDA currentlevel
     CMP #3
@@ -413,7 +447,7 @@ sul1:
     LDA #1
     STA upsidedown
 sul2:
-	; reset allowed swap
+    ; reset allowed swap
     LDA #1
     STA allowedswap
 
@@ -425,8 +459,8 @@ sul2:
     DEX
     LDA linesneededperlevel,x
     STA targetlinesforthislevelnum
-	
-	; reset the number of pieces played this level
+    
+    ; reset the number of pieces played this level
     LDA #0
     STA piecesplayedthislevel
     
@@ -441,8 +475,8 @@ sul2:
 
 DrawScreen:
     JSR WaitFrame
-	JSR ClearScreen	; clear the screen
-	
+    JSR ClearScreen ; clear the screen
+    
     JSR PrintUpcomingLevel
     
     JSR WaitFrame
@@ -452,8 +486,8 @@ DrawScreen:
     JSR PrintLevelTarget
     JSR WriteNameOfLevel
 
-	; draw the saved shape
-	JSR DrawSavedShape
+    ; draw the saved shape
+    JSR DrawSavedShape
     
     ; draw the text lines (or bombs)
     JSR DrawLinesOrBombs
@@ -471,8 +505,8 @@ DrawScreen:
     JSR PrintGhostSetting
     
     ; we call selectnewpiece twice so we have a value for current and next shape
-	JSR SelectNewPiece
-	JSR SelectNewPiece
+    JSR SelectNewPiece
+    JSR SelectNewPiece
     
     JSR ShowAllShapes
     
@@ -692,8 +726,8 @@ CheckFrameTimer:
     CMP #$00    ; if equal to 0 then no buttons pressed
     BEQ nobuttonspressed
     JMP handlebuttonactions
-nobuttonspressed:	
-	JSR DropPieceIfTapped
+nobuttonspressed:   
+    JSR DropPieceIfTapped
     LDA #0
     STA dropbuttonpresscount
 
@@ -740,7 +774,9 @@ ReadSelect:
     CMP #$00 
     BEQ ReadStart
 
-    ; select does not do anything
+    ; Stuff for Start button 
+    JSR ChangeGhostSetting
+    JSR SmallDelay
 
 ReadStart: 
     LDA buttonspressed 
@@ -748,9 +784,8 @@ ReadStart:
     CMP #$00 
     BEQ ReadUp
 
- ; Stuff for Start button 
-    JSR ChangeGhostSetting
-    JSR SmallDelay
+    ; Stuff for Start button 
+    JSR DoPauseAction
 
 ReadUp: 
     LDA buttonspressed 
@@ -845,26 +880,26 @@ main1:
     CMP #45         ; have 45 frames elapsed yet?
     BCS main4
     JMP main3
-main2:	
-	; difficulty hard
+main2:  
+    ; difficulty hard
     LDA frameTimer
     SEC 
     SBC pretim
     CMP #15         ; have 15 frames elapsed yet?
     BCS main4
-	
-main3:	
+    
+main3:  
     JMP MainGameLoop    ;not time to drop piece yet, continue main loop
-	
+    
 main4:
     LDA frameTimer
     STA pretim
     
-	JSR AutoDropPiece
-	
+    JSR AutoDropPiece
+    
     ; the following will send us back to MainGameLoop if level not complete, otherwise
     ; it will send us to NewLevel
-	JMP CheckLevelComplete  
+    JMP CheckLevelComplete  
 
     ; end main game loop
 
@@ -895,7 +930,41 @@ DoClockwiseAction:
 ; if the button pressed corresponds to save/swap
 DoSwapAction:
     JSR SwapShape
-    JMP SmallDelay     
+    JMP SmallDelay 
+
+; this is the pause action
+DoPauseAction:
+    JSR pause_song
+    
+    LDA #<paused_str
+    STA textprintaddr
+    LDA #>paused_str
+    STA textprintaddr + 1
+   
+    JSR WriteTextToScreen
+    
+    JSR SmallDelay
+    JSR SmallDelay
+
+dpause1:    
+    JSR ReadFromController1
+    LDA buttonspressed
+    AND #%00010000 
+    CMP #$00 
+    BEQ dpause1
+    
+    LDA #<notpaused_str
+    STA textprintaddr
+    LDA #>notpaused_str
+    STA textprintaddr + 1
+   
+    JSR WriteTextToScreen
+    
+    JSR resume_song
+    JSR SmallDelay
+    
+    RTS
+    
  
 
 ; this calculates the number of pieces left allowed to play in the level and stores the result in piecesleftthislevel
@@ -1104,20 +1173,20 @@ SelectNewPiece:
     CMP #$09
     BEQ snp2
     
-	; if get to here then using the standard set
+    ; if get to here then using the standard set
 
-	;this picks the random numbers when just using standard set
-snp1:	
-	JSR rnd
+    ;this picks the random numbers when just using standard set
+snp1:   
+    JSR rnd
     AND #%00000111   ;bitmask bits 0, 1 and 2 
     CMP #$07
     BEQ snp1
     JMP snp3
-    	
-	; this picks the random numbers when using the extended set
-snp2:	
-	JSR rnd
-	AND #15	;bitmask bits 0, 1, 2 and 3 (7 for standard set)
+        
+    ; this picks the random numbers when using the extended set
+snp2:   
+    JSR rnd
+    AND #15 ;bitmask bits 0, 1, 2 and 3 (7 for standard set)
     CMP #12
     BEQ snp2
     CMP #13
@@ -1126,11 +1195,11 @@ snp2:
     BEQ snp2
     CMP #15
     BEQ snp2
-    		
-snp3:	
+            
+snp3:   
     STA nextshape
-	JSR DrawNextShape
-	
+    JSR DrawNextShape
+    
     PLA
     STA currentshape    ; retrieve the previous next shape from the stack and make it the current shape
     
@@ -1139,7 +1208,7 @@ snp3:
     LDA starty
     STA ply
    
-	; if upside down we need to update the starting y position
+    ; if upside down we need to update the starting y position
     LDA upsidedown
     CMP #$01
     BEQ snp5
@@ -1149,9 +1218,9 @@ snp3:
 snp5:
     LDA upsidedownstarty
     STA ply
-	
-snp6:	
-	; reset allowed swap
+    
+snp6:   
+    ; reset allowed swap
     LDA #$01
     STA allowedswap
     
@@ -1160,10 +1229,10 @@ snp6:
     LDX currentshape
     LDA tilenumlookuptable, x
     STA tilenum
-	
+    
 snp7:
-	; now check if end game
-	LDA plx
+    ; now check if end game
+    LDA plx
     STA tmpx
     LDA ply
     STA tmpy
@@ -1174,16 +1243,16 @@ snp7:
     BEQ snp4
     
     ; the start position is not valid so its end game
-	JMP GameOver
-	
+    JMP GameOver
+    
 snp4:
     LDA #$00
     STA currentorientation
     JSR SetBlockShapes
     
-	INC piecesplayedthislevel
+    INC piecesplayedthislevel
 
-	JSR LevelSpecialAction; this does the special action required per level (may not do anything)
+    JSR LevelSpecialAction; this does the special action required per level (may not do anything)
     
     RTS
     
@@ -1205,31 +1274,31 @@ ssh1:
     
     LDA savedshape
     PHA     ; save the saved shape to the stack
-		
+        
     LDA currentshape
-    STA savedshape	
-	
-	JSR DrawSavedShape
-	
+    STA savedshape  
+    
+    JSR DrawSavedShape
+    
     PLA     ; get the saved shape from the stack
     STA currentshape    ; now we have swapped shapes
     
-	LDA startx      ; swapped piece starts from the top of the screen
+    LDA startx      ; swapped piece starts from the top of the screen
     STA plx
     LDA starty
     STA ply
     
-	
-	; if we are upside down we need to update the y position
+    
+    ; if we are upside down we need to update the y position
     LDA upsidedown
     CMP #1
     BNE ssh4
 
 ssh3:
-	LDA upsidedownstarty
+    LDA upsidedownstarty
     STA ply
-	
-ssh4:	
+    
+ssh4:   
     ; now that we have picked the shape, we set its tile type
     
     LDX currentshape
@@ -1240,7 +1309,7 @@ ssh4:
     STA currentorientation
     
     ; now check if end game
-	LDA plx
+    LDA plx
     STA tmpx
     LDA ply
     STA tmpy
@@ -1252,10 +1321,10 @@ ssh4:
     BEQ ssh2
     
     ; the start position is not valid so its end game
-	JMP GameOver
-    	
+    JMP GameOver
+        
 ssh2:
-	; ok, so we can draw the shape ok
+    ; ok, so we can draw the shape ok
     
     JSR SetBlockShapes
     
@@ -1264,7 +1333,7 @@ ssh2:
     RTS
     
     
-; This drops the piece down by one square if possible, if not possible then it starts a new piece	
+; This drops the piece down by one square if possible, if not possible then it starts a new piece   
 AutoDropPiece:
 
     LDA upsidedown
@@ -1275,14 +1344,14 @@ AutoDropPiece:
     STA tmpy
     INC tmpy    ; we are trying to move down
     JMP adp4
-	
+    
 adp3:
-	; this is the section called if upside down
+    ; this is the section called if upside down
     LDA ply
     STA tmpy
     DEC tmpy    ; we are trying to move up (as we are upside down)
     
-adp4:	
+adp4:   
     LDA plx
     STA tmpx
     
@@ -1298,17 +1367,17 @@ adp4:
     INC ply     ; move is valid so increment y
     JMP adp2
  
-	
+    
 adp5:
-    DEC ply     ; move is valid so decrement y (as upside down)	
-	JMP adp2	
-	
+    DEC ply     ; move is valid so decrement y (as upside down) 
+    JMP adp2    
+    
 
-adp1:	
-	; if we are here then it was not possible to drop the block, choose a new block
-	; first we redraw back the piece then choose our new one
-	; we also add to the score
-	; Add 20 to the score.
+adp1:   
+    ; if we are here then it was not possible to drop the block, choose a new block
+    ; first we redraw back the piece then choose our new one
+    ; we also add to the score
+    ; Add 20 to the score.
     
     LDA #sfx_index_sfx_Lock_or_Move
     JSR PlaySoundEffect
@@ -1329,16 +1398,16 @@ adp1:
     PLA
     TAY     ; restore Y from the stack
 
-	JSR PrintScore		;print this new score
-	   
+    JSR PrintScore      ;print this new score
+       
     LDX plx
     LDY ply
     JSR ConvertShapeToBg
-	
-    JSR HideAllSprites  ; sprite has been converted to background, temporarily hide
-	JSR CheckPlayArea	; see if a winning line (or lines) exists
     
-	JSR SelectNewPiece
+    JSR HideAllSprites  ; sprite has been converted to background, temporarily hide
+    JSR CheckPlayArea   ; see if a winning line (or lines) exists
+    
+    JSR SelectNewPiece
     
     ; we need to reset lastbuttonspressed - otherwise if someone has taps the down key just before the
     ; selectnewpiece routine is called, then the next piece will immediately fall down as it appears
@@ -1349,11 +1418,11 @@ adp1:
     LDA #0
     STA lastbuttonspressed
     STA buttonspressed
-	
+    
 adp2:
     JSR ShowAllShapes
 
-	RTS    
+    RTS    
  
 ; this draws the saved shape 
 DrawSavedShape: 
@@ -1369,12 +1438,12 @@ DrawSavedShape:
     STA blockpointer
 
     LDX savedshape
-	CPX #$00
+    CPX #$00
     BEQ dss1
     
     LDA blocklookuptable,x
     STA blockpointer
-		
+        
 dss1:
     LDX blockpointer
     LDA shapedata, x
@@ -1415,12 +1484,12 @@ DrawNextShape:
     STA blockpointer
 
     LDX nextshape
-	CPX #$00
+    CPX #$00
     BEQ dns1
     
     LDA blocklookuptable,x
     STA blockpointer
-		
+        
 dns1:
     LDX blockpointer
     LDA shapedata, x
@@ -1622,8 +1691,8 @@ pnhs1:
 CheckWinningLine:
     LDA #0
     STA winningline     ; winningline reset to 0
-	
-	; tmpy is already set, but set initial x value
+    
+    ; tmpy is already set, but set initial x value
     LDA #LEFTWALLX
     STA tmpx
     INC tmpx
@@ -1646,14 +1715,14 @@ cwl1:
     DEX
     CPX #0
     BNE cwl1
-	
-	; if get this far then winning line
+    
+    ; if get this far then winning line
     LDA #1
     STA winningline
     RTS
 
 cwl2:
-	; not a winning line, but need to tidy the stack, then exit
+    ; not a winning line, but need to tidy the stack, then exit
     PLA
     RTS  
     
@@ -1678,7 +1747,7 @@ cpa1:
     BEQ cpa2
     
 
-;	call flashwinningline
+;   call flashwinningline
 
     TYA
     PHA     ; push Y to the stack as we are going to overwrite it
@@ -1701,7 +1770,7 @@ cpa1:
     PLA
     TAY     ; restore Y from the stack
 
-	JSR PrintScore		;print this new score
+    JSR PrintScore      ;print this new score
 
     INC rowscompleted
     LDA rowscompleted
@@ -1724,14 +1793,14 @@ cpa1:
     PLA
     TAY     ; restore Y from the stack
 
-	JSR PrintScore		;print this new score
-    		
+    JSR PrintScore      ;print this new score
+            
 cpa2:
     DEY
     CPY #TOPYWHENUPSIDEDOWN 
     BNE cpa1
 
-	; now update the lines or bombs completed
+    ; now update the lines or bombs completed
     
     LDA currentlevel
     CMP #6
@@ -1747,7 +1816,7 @@ cpa2a:
     
     JSR PrintLinesOrBombsCompleted
     
-	; if any winning lines need to now remove
+    ; if any winning lines need to now remove
     LDA rowscompleted
     CMP #0
     BEQ cpa10       ; if no rows completed we can exit this routine
@@ -1761,7 +1830,7 @@ cpa2a:
     LDA upsidedown
     CMP #1
     BEQ cpa6
-	
+    
 
     LDY #BOTTOMY
     DEY     ; start one up from very bottom of screen    
@@ -1773,10 +1842,10 @@ cpa4:
     
     JSR EraseLine
     
-	JSR DropPlayArea
+    JSR DropPlayArea
 
     
-	; we now need to add 1 to Y to ensure we check/delete all winning lines. Effectively the
+    ; we now need to add 1 to Y to ensure we check/delete all winning lines. Effectively the
     ; DEY at the end of the loop means we will recheck this Y value as possibly a winning line 
     ; has dropped down to here
     
@@ -1787,7 +1856,7 @@ cpa5:
     DEY
     CPY #TOPYWHENUPSIDEDOWN 
     BNE cpa4
-	
+    
     ; all the winning lines have been removed from our playarea buffer
     ; now we redraw the playarea based on this buffer
     JSR ClearedLineNoise
@@ -1808,8 +1877,8 @@ cpa5:
     
 cpa5a:    
     RTS
-	
-	
+    
+    
 cpa6:
     LDY #TOPYWHENUPSIDEDOWN
     INY     ; start one up from very bottom of screen    
@@ -1820,8 +1889,8 @@ cpa7:
     BEQ cpa8    ; if not a winning line then skip EraseLine
     JSR EraseLine
 
-	JSR UpsideDownDropPlayArea
-	; we now need to decrement 1 from Y to ensure we check/delete all winning lines. Effectively the
+    JSR UpsideDownDropPlayArea
+    ; we now need to decrement 1 from Y to ensure we check/delete all winning lines. Effectively the
     ; INY in the below loop means we will recheck this Y value as possibly a winning line 
     ; has dropped down to here
     
@@ -1832,7 +1901,7 @@ cpa8:
     INY
     CPY #BOTTOMY 
     BNE cpa7
-	
+    
     ; all the winning lines have been removed from our playarea buffer
     ; now we redraw the playarea based on this buffer
     JSR ClearedLineNoise
@@ -1929,16 +1998,16 @@ DrawPlayAreaFromBuffer:
     LDA #$00    ; reset the index into the background buffer
     STA bgbufidx
     
-	LDA upsidedown
-	CMP #1
-	BEQ dpafb1
+    LDA upsidedown
+    CMP #1
+    BEQ dpafb1
 
     LDY #BOTTOMY
     DEY     ; start one up from very bottom of screen
     JMP dpafb2
-	
+    
 dpafb1:
-	LDY #TOPYWHENUPSIDEDOWN
+    LDY #TOPYWHENUPSIDEDOWN
     INY     ; start one down from very top of screen (as we are upside down)
 
 dpafb2:
@@ -1996,24 +2065,24 @@ dpafb3:
 
     JSR CommitChange    ; writes the changes and resets bgbufidx to 0
 
-	LDA upsidedown
-	CMP #1
-	BEQ dpafb4
+    LDA upsidedown
+    CMP #1
+    BEQ dpafb4
     
     DEC tmpy
     LDY tmpy
     CPY #TOPYWHENUPSIDEDOWN-1
     BNE dpafb2  
-	
-	JMP dpafb5
+    
+    JMP dpafb5
 
 dpafb4:
-	INC tmpy
-	LDY tmpy  
+    INC tmpy
+    LDY tmpy  
     CPY #BOTTOMY+1
-	BNE dpafb2
+    BNE dpafb2
 
-dpafb5:	    	
+dpafb5:         
     RTS
     
     
@@ -2064,7 +2133,7 @@ el1:
     PLA
     TAX
     
-	RTS    
+    RTS    
 
 ; move playarea down. When we get a winning line, we remove the winning line and this routine
 ; drops the playarea above that line down
@@ -2093,10 +2162,10 @@ dpa2:
     DEY
     CPY #TOPYWHENUPSIDEDOWN-1
     BNE dpa1    
-    	
-	; at this stage we have dropped everything, now just need to erase the top line
-	
-	JSR EraseTopLine
+        
+    ; at this stage we have dropped everything, now just need to erase the top line
+    
+    JSR EraseTopLine
     
     PLA     ; now pull back X and Y from the stack
     TAY
@@ -2132,10 +2201,10 @@ udpa2:
     INY
     CPY #BOTTOMY+1
     BNE udpa1    
-    	
-	; at this stage we have dropped everything, now just need to erase the top line
-	
-	JSR EraseTopLine
+        
+    ; at this stage we have dropped everything, now just need to erase the top line
+    
+    JSR EraseTopLine
     
     PLA     ; now pull back X and Y from the stack
     TAY
@@ -2159,7 +2228,7 @@ EraseTopLine:
 etl2:
     LDY #BOTTOMY
     JSR EraseLine
-    RTS	
+    RTS 
     
 ; routine used to update a count. Used to update the score
 ; Y is passed in as the digit to update 
@@ -2186,7 +2255,7 @@ uc2:
     CMP #58 
     BCS uc1   
     RTS 
-	
+    
 ; moves the block right if allowed. 
 MoveRight:
  
@@ -2230,16 +2299,16 @@ ml1:
 ; rotates the shape anticlockwise if allowed. 
 MoveAntiClockwise:
 
-	INC currentorientation
-	LDA currentorientation
-	CMP #$04	;if 4 then need to set to 0 (as max value for currentorientation is 3)
+    INC currentorientation
+    LDA currentorientation
+    CMP #$04    ;if 4 then need to set to 0 (as max value for currentorientation is 3)
     BNE mac1
-	LDA #$00
+    LDA #$00
     STA currentorientation
 mac1:
 
-	JSR SetBlockShapes
-	
+    JSR SetBlockShapes
+    
     LDA ply
     STA tmpy
     LDA plx
@@ -2250,7 +2319,7 @@ mac1:
     CMP #$01
     BEQ mac4
     
-	; move is not valid so need to reset blockpointer and blockshapes
+    ; move is not valid so need to reset blockpointer and blockshapes
     LDA currentorientation
     CMP #$00
     BNE mac2
@@ -2266,21 +2335,21 @@ mac3:
 mac4:
     JSR ShowAllShapes
 mac5:    
-	
-	RTS  
+    
+    RTS  
     
 ; rotates the shape clockwise if allowed. 
 MoveClockwise:
 
-	LDA currentorientation
-	CMP #$00	;if 0 then need to set to 3 (as max value for currentorientation is 3)
+    LDA currentorientation
+    CMP #$00    ;if 0 then need to set to 3 (as max value for currentorientation is 3)
     BNE mc1
-	LDA #$04     ; we set to 4 instead of 3 as the first action in mc1 is to decrement
+    LDA #$04     ; we set to 4 instead of 3 as the first action in mc1 is to decrement
     STA currentorientation
 mc1:
     DEC currentorientation
-	JSR SetBlockShapes
-	
+    JSR SetBlockShapes
+    
     LDA ply
     STA tmpy
     LDA plx
@@ -2291,7 +2360,7 @@ mc1:
     CMP #$01
     BEQ mc4
     
-	; move is not valid so need to reset blockpointer and blockshapes
+    ; move is not valid so need to reset blockpointer and blockshapes
     LDA currentorientation
     CMP #$03
     BNE mc2
@@ -2307,8 +2376,8 @@ mc3:
 mc4:
     JSR ShowAllShapes
 mc5:    
-	
-	RTS   
+    
+    RTS   
 
 ; this swaps the ghost setting from active to inactive (and vice versa)
 
@@ -2319,8 +2388,8 @@ ChangeGhostSetting:
     LDA ghostactive
     CMP #0
     BNE cgs1
-	
-	; ghost is currently off, switch it on
+    
+    ; ghost is currently off, switch it on
     LDA #1
     STA ghostactive
     
@@ -2328,18 +2397,18 @@ ChangeGhostSetting:
     
     JSR PrintGhostSetting
     
-	RTS
-		
+    RTS
+        
 cgs1:
-	; ghost is currently on, switch it off
+    ; ghost is currently on, switch it off
     LDA #0
     STA ghostactive
     
     JSR ShowAllShapes
     
     JSR PrintGhostSetting
-		
-	RTS   
+        
+    RTS   
     
 ; this prints the current ghost setting (on or off)
 PrintGhostSetting:
@@ -2372,7 +2441,7 @@ pgs2:
 ; and dropbuttonpresscount is 1 (so only a quick tap)
 
 DropPieceIfTapped:
-	; check dropmethod and lastbuttonspressed and dropbuttonpresscount
+    ; check dropmethod and lastbuttonspressed and dropbuttonpresscount
     LDA dropmethod
     CMP #2
     BNE dpit4   ; if not mixture drop method quit here immediately
@@ -2421,7 +2490,7 @@ DropPieceOneSquare:
     BEQ dpo1
     
     INC tmpy ; going down one square
-	
+    
     JMP dpo2
 dpo1:
     DEC tmpy    ; going up one square (we are upside down)
@@ -2445,14 +2514,14 @@ dpo3:
 
 dpo4:
     JSR ShowAllShapes
-	
-	; reset the automatic drop timing - we do this as otherwise we would get occasional piece dropping
-	; down 2 spaces
+    
+    ; reset the automatic drop timing - we do this as otherwise we would get occasional piece dropping
+    ; down 2 spaces
     LDA frameTimer
     STA pretim
 
-dpo5:	
-	RTS	
+dpo5:   
+    RTS 
  
 ;this drops the piece, either by 1 square or till it cannot go any further
 DropPiece:
@@ -2462,17 +2531,17 @@ DropPiece:
     CMP #1
     BEQ DropPieceOneSquare
 
-	; we are not 0 or 1 so using a mixture - check for fulldropactive
+    ; we are not 0 or 1 so using a mixture - check for fulldropactive
     LDA fulldropactive
     CMP #0
     BEQ DropPieceOneSquare
     
-	; if here then using mixture dropmethod and full drop has been requested
+    ; if here then using mixture dropmethod and full drop has been requested
     LDA #0
     STA fulldropactive
 
-	JMP DropPieceFull    
-	    
+    JMP DropPieceFull    
+        
 ; drop the piece till it cannot go any further
 ; this is a loop, the exit being when no more moves are available
 
@@ -2489,7 +2558,7 @@ DropPieceFull:
 
     INC tmpy    ; going down one square
     JMP dpf2
-	
+    
 dpf1:
     DEC tmpy    ; we are trying to move up (as upside down)
 dpf2:
@@ -2516,8 +2585,8 @@ dpf4:
     LDX #$8
     JSR ActualDelay
 
-    	
-	; we get bonus points for dropping, 5 points per square dropped
+        
+    ; we get bonus points for dropping, 5 points per square dropped
     TYA
     PHA     ; push Y to the stack as we are going to overwrite it
     
@@ -2534,9 +2603,9 @@ dpf4:
     PLA
     TAY     ; restore Y from the stack
 
-	JSR PrintScore		;print this new score
+    JSR PrintScore      ;print this new score
     
-	JMP DropPieceFull   ; we are jumping to ourselves as we keep going till not possible to drop anymore
+    JMP DropPieceFull   ; we are jumping to ourselves as we keep going till not possible to drop anymore
 
 dpf5:
     RTS
@@ -2548,12 +2617,12 @@ SetBlockShapes:
     STA blockpointer
 
     LDX currentshape
-	CPX #$00
+    CPX #$00
     BEQ sbs1
     
     LDA blocklookuptable,x
     STA blockpointer
-	
+    
 sbs1:
     LDX currentorientation
     ; for each orientation possibility we have to skip 2 bytes
@@ -2566,7 +2635,7 @@ sbsloop1:
     DEX
     CPX #$00
     BNE sbsloop1
-	
+    
 sbs2:
     LDX blockpointer
     LDA shapedata, x
@@ -2904,14 +2973,14 @@ hus8:
 ; then dropping down till we hit the top of the already placed pieces
 CalculateGhostPosition:
 
-	; copy the player x and y to the tmp x and y
+    ; copy the player x and y to the tmp x and y
     LDA plx
     STA tmpx
     LDA ply
     STA tmpy
-	
+    
     ; the currentshape works as an offset into the ghostlookuptable
-	LDX currentshape
+    LDX currentshape
     LDA ghostlookuptable, x
     STA ghostpointer
    
@@ -2970,23 +3039,23 @@ cgp5:
     STA tmpy    
     
 cgp1:
-	; we have gone the minimum distance required by the ghost offset
-	; we check if there is an immediate collision, if there is, we exit	
-	
+    ; we have gone the minimum distance required by the ghost offset
+    ; we check if there is an immediate collision, if there is, we exit 
+    
     JSR CheckMove
     LDA allowedmove
     CMP #$00
     BNE cgp3    ; if no collision then determine ghost location
     
-				
+                
 cgp2:
-	; if in here this not possible to determine ghost x and y, set the ghostshowing to 0
+    ; if in here this not possible to determine ghost x and y, set the ghostshowing to 0
     LDA #$00
     STA ghostshowing
     RTS
 
 cgp3:
-	; if here then found empty space, now keep dropping, this will be where the ghost shape will be shown
+    ; if here then found empty space, now keep dropping, this will be where the ghost shape will be shown
     LDA upsidedown
     CMP #$01
     BEQ cgp6
@@ -2996,15 +3065,15 @@ cgp3:
     
 cgp6:
     DEC tmpy    ; as we are upside down
-    	
-cgp7:	
-	JSR CheckMove
+        
+cgp7:   
+    JSR CheckMove
     LDA allowedmove
     CMP #$00
     BNE cgp3
     
 cgp4:
-	; if we are here then have found the top of the place pieces, allocate ghost x and y
+    ; if we are here then have found the top of the place pieces, allocate ghost x and y
     LDA upsidedown
     CMP #$01
     BEQ cgp8
@@ -3018,15 +3087,15 @@ cgp8:
     INC tmpy    ; we increment one as we had gone one too far with previous loop
     LDA tmpy
     STA ghosty
-    	
-cgp9:	
+        
+cgp9:   
     LDA tmpx
     STA ghostx
 
     LDA #$01
     STA ghostshowing
-			
-	RTS	 
+            
+    RTS  
 
 ; this draws the ghost shape. It only draws if ghost is active
 ; and if calculateghostposition determines it is possible/safe to draw
@@ -3035,9 +3104,9 @@ ShowGhostShape:
     CMP #$00
     BEQ sgs2    ; if equal to 0 (ghost not active) then exit
    
-sgs1:	
-	JSR CalculateGhostPosition
-	; now determine if possible to show ghost
+sgs1:   
+    JSR CalculateGhostPosition
+    ; now determine if possible to show ghost
     LDA ghostshowing
     CMP #$00
     BEQ sgs2    ; jump to sgs2 (returns) if not possible to show ghost
@@ -3052,7 +3121,7 @@ sgs1:
     LDA #$01
     STA drawingghost    ; so showshape knows we are drawing the ghost
     
-	JSR ShowShape
+    JSR ShowShape
 sgs2:
     RTS
     
@@ -4048,23 +4117,23 @@ VerySmallDelay:
     
 ; small delay loop used by main loop
 SmallDelay:
-	LDA sensitivity
+    LDA sensitivity
     CMP #$00
     BEQ sd2
-	CMP #$01
-	BEQ sd3
-	; else its slow
-	LDX #$FF
-	JMP sd1
+    CMP #$01
+    BEQ sd3
+    ; else its slow
+    LDX #$FF
+    JMP sd1
 sd2:
-	; fast
+    ; fast
     LDX #$32
-	JMP sd1
+    JMP sd1
 sd3:
-	; normal
+    ; normal
     LDX #$80
 sd1:
-	JMP ActualDelay
+    JMP ActualDelay
     
 ActualDelay:    
 
@@ -4128,8 +4197,8 @@ lsa3:
     JMP PrintNumberOfPiecesLeft
 
 lsa4:
-	; level 8, sliding floor
-	; a random level is moved either left or right every 4 pieces
+    ; level 8, sliding floor
+    ; a random level is moved either left or right every 4 pieces
 
     LDA piecesplayedthislevel
     TAX
@@ -4167,8 +4236,8 @@ lsa6:
     JMP SlidingFloor
        
 lsa7: 
-	; level 10 - rising fall
-	; the floor rises 1 row and that row is filled with random blocks
+    ; level 10 - rising fall
+    ; the floor rises 1 row and that row is filled with random blocks
 
     LDA piecesplayedthislevel
     TAX
@@ -4205,7 +4274,7 @@ ShootingStar:
     LDA #sfx_index_sfx_Appear
     JSR PlaySoundEffect
 
-	JSR rnd
+    JSR rnd
     AND #%00001111   ;bitmask bits 0, 1, 2 and 3 (so we pick number between 0 and 15)
     
     CLC
@@ -4213,7 +4282,7 @@ ShootingStar:
     
     TAY     ; register Y now holds the row we will place our star
 
-	; now that we have picked the row, need to pick the column
+    ; now that we have picked the row, need to pick the column
     ; there are 10 possible positions in the row, so pick number between 0 and 9 inclusive
 sst1:
     JSR rnd
@@ -4232,7 +4301,7 @@ sst1:
     BEQ sst1    
 
 sst2:
-	; we now have a value between 0 and 9
+    ; we now have a value between 0 and 9
     CLC
     ADC #LEFTWALLX
     CLC
@@ -4244,9 +4313,9 @@ sst2:
     
     CMP #BLANKSPACE
     BNE sst1    ; if not blank space then pick again
-    	
-	; at this stage we have picked a square and it is blank
-	; lets draw our random tile on-screen
+        
+    ; at this stage we have picked a square and it is blank
+    ; lets draw our random tile on-screen
     
     LDA #$00    ; reset the index into the background buffer
     STA bgbufidx
@@ -4271,7 +4340,7 @@ sst2:
     PLA
     STA tilenum
     
-	
+    
     RTS
     
 ; finds a row (that has a square already on that row) and slides it one square left or right
@@ -4284,7 +4353,7 @@ SlidingFloor:
     STA bgbufidx    ; reset the index into the background buffer
 
 sf1:
-	JSR rnd
+    JSR rnd
     AND #%00001111   ;bitmask bits 0, 1, 2 and 3 (so we pick number between 0 and 15)
     
     CLC
@@ -4548,7 +4617,7 @@ PlaceBomb:
     PHA     ; push X to the stack as populatebombs uses X as a loop counter
 
 pb1:    
-	JSR rnd
+    JSR rnd
     AND #%00001111   ;bitmask bits 0, 1, 2 and 3 (so we pick number between 0 and 15)
     
     CLC
@@ -4559,7 +4628,7 @@ pb1:
     
     TAY     ; register Y now holds the row we will place our star
 
-	; now that we have picked the row, need to pick the column
+    ; now that we have picked the row, need to pick the column
     ; there are 10 possible positions in the row, so pick number between 0 and 9 inclusive    
 pb2:
     JSR rnd
@@ -4578,7 +4647,7 @@ pb2:
     BEQ pb2    
 
 pb3:
-	; we now have a value between 0 and 9
+    ; we now have a value between 0 and 9
     CLC
     ADC #LEFTWALLX
     CLC
@@ -4590,9 +4659,9 @@ pb3:
     
     CMP #BLANKSPACE
     BNE pb1    ; if not blank space then pick again
-    	
-	; at this stage we have picked a square and it is blank
-	; lets draw our bomb tile on-screen
+        
+    ; at this stage we have picked a square and it is blank
+    ; lets draw our bomb tile on-screen
     
     LDA #$00    ; reset the index into the background buffer
     STA bgbufidx
@@ -4619,7 +4688,7 @@ pb3:
     
     PLA
     TAX ; retrieve X from the stack
-	
+    
     RTS    
     
 ; this draws arrows on the appropriate row, then pauses
@@ -4748,11 +4817,11 @@ rf2:
     INY
     CPY #BOTTOMY
     BNE rf1    
-    	
-	; at this stage we have raised everything, now just need to create our new line
+        
+    ; at this stage we have raised everything, now just need to create our new line
     LDY #BOTTOMY
     DEY
-rf3:	
+rf3:    
     LDX #LEFTWALLX
     INX
 rf4:
@@ -4826,7 +4895,7 @@ p2d3:
     
     RTS
     
-; this checks if we have completed the level or won the game	
+; this checks if we have completed the level or won the game    
 CheckLevelComplete:
 
     LDA currentlevel
@@ -5032,40 +5101,40 @@ LoadTeuthidaScreen:
 ; this loads a nametable that is encoded with RLE - this is my ASM6 port of RLE decompressor by Shiru 
 LoadRLEBkg:
     LDX addrLo
-	STX RLE_LOW
+    STX RLE_LOW
     LDY addrHi
-	STY RLE_HIGH
-	LDY #0
-	JSR rle_byte
-	STA RLE_TAG
+    STY RLE_HIGH
+    LDY #0
+    JSR rle_byte
+    STA RLE_TAG
 lrb1:
-	JSR rle_byte
-	CMP RLE_TAG
-	BEQ lrb2
-	STA $2007
-	STA RLE_BYTE
-	BNE lrb1
+    JSR rle_byte
+    CMP RLE_TAG
+    BEQ lrb2
+    STA $2007
+    STA RLE_BYTE
+    BNE lrb1
 lrb2:
-	JSR rle_byte
-	CMP #0
-	BEQ lrb4
-	TAX
-	LDA RLE_BYTE
+    JSR rle_byte
+    CMP #0
+    BEQ lrb4
+    TAX
+    LDA RLE_BYTE
 lrb3:
-	STA $2007
-	DEX
-	BNE lrb3
-	BEQ lrb1
+    STA $2007
+    DEX
+    BNE lrb3
+    BEQ lrb1
 lrb4:
-	RTS
+    RTS
 
 rle_byte:
-	LDA (RLE_LOW),y
-	INC RLE_LOW
-	BNE rb1
-	INC RLE_HIGH
+    LDA (RLE_LOW),y
+    INC RLE_LOW
+    BNE rb1
+    INC RLE_HIGH
 rb1:
-	rts    
+    rts    
     
     
 ; this loads the main game screen graphics (name table and attributes)
@@ -5196,7 +5265,7 @@ NewGameInitialisation:
     STA currentlevel    ; set the current level to 1 (starting)
     STA bufferaddactive
     
-    LDA #1            
+    LDA #1           
     STA currentlevel
     
     LDA #$00
@@ -5510,7 +5579,7 @@ LargePause:
 
     RTS
     
-; This draws words onscreen using blocks to make up the parts of the letters	
+; This draws words onscreen using blocks to make up the parts of the letters    
 ; Each byte represents the tile number of the block to draw
 ; 254 means end of line and 255 means end of data (stop drawing)
 PrintWordsWithBlocks:

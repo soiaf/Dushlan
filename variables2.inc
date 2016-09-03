@@ -45,3 +45,7 @@
     ; this holds the high score
     
     highscore .dsb 6
+	
+	; this holds our palette
+	
+	palette .dsb 32
