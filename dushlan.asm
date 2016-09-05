@@ -195,12 +195,14 @@ vBlankWait2:
     
     ;0: NTSC, 1: PAL, 2: Dendy; 3: unknown
     
-    ; if we have identified tv system as PAL, set sound to PAL, otherwise NTSC
+    ; if we have identified tv system as PAL or Dendy, set sound to PAL, otherwise NTSC
     
     LDA tvsystem
     CMP #1
     BEQ setsound1
-    ; not PAL, so set to NTSC sound
+    CMP #2
+    BEQ setsound1
+    ; not PAL or Dendy, so set to NTSC sound
     LDA #SOUND_REGION_NTSC
     JMP setsound2
 setsound1:

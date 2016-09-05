@@ -85,7 +85,7 @@ linesneededperlevel: .db	10,6,6,5,4,#BOMBSONLEVEL6,7,12,4,25
 
 MainPalette: 
     .db $0E,$34,$27,$1C, $0E,$05,$25,$0F, $0E,$05,$25,$0F, $0E,$05,$25,$0E    ;background
-    .db $0E,$34,$27,$1C, $0E,$05,$25,$0F, $0E,$05,$25,$0F, $0E,$05,$25,$0F    ;sprites
+    .db $0E,$34,$27,$1C, $0E,$27,$25,$0F, $0E,$05,$25,$0F, $0E,$05,$25,$0F    ;sprites
 
 background:
     .incbin "graphics.rle"

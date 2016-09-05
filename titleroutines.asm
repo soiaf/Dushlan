@@ -209,6 +209,8 @@ DrawTitleArrow:
     STA $0200
     LDA #RIGHTARROWTILE
     STA $0201
+    LDA #1
+    STA $0202
     LDA tmpx
     STA $0203 
     
