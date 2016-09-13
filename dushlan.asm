@@ -684,6 +684,32 @@ dlob1:
 ;; Read from controller 1 and place result in buttonspressed
 
 ReadFromController1:
+    JSR ReadController1
+    LDA buttonspressed
+    STA controllertemp1
+    
+    JSR ReadController1
+    LDA buttonspressed
+    STA controllertemp2
+    
+    JSR ReadController1
+    LDA buttonspressed
+    STA controllertemp3
+    
+    LDA controllertemp2
+    ORA controllertemp3
+    AND controllertemp1
+    STA controllertemp1
+    LDA controllertemp2
+    AND controllertemp3
+    ORA controllertemp1
+    STA buttonspressed
+ 
+    RTS
+
+
+; this is called by ReadFromController1 to actually read the values
+ReadController1:
     ; latch 
     LDA #$01 
     STA $4016 

@@ -321,4 +321,9 @@
 	
 	; the following is used when we are loading a colour palette
     paletteaddr  .dsb 2
+	
+	; the following are used when reading from controller 1 to ensure that the DMC bug is handled
+	controllertemp1 .dsb 1
+	controllertemp2 .dsb 1
+	controllertemp3 .dsb 1
  
